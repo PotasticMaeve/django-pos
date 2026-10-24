@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from .models import Product
 from .serializers import ProductSerializer
 from src.utils.response import GeneralResponse
+from rest_framework import status
 
 class ProductAPIView(APIView, GeneralResponse):
     def list(self, request):
@@ -15,12 +16,12 @@ class ProductAPIView(APIView, GeneralResponse):
     def retrieve(self, request, id):
         if not isinstance(id, int):
             data = self.error(message='Invalid product ID')
-            return Response(data, status=400)
+            return Response(data, status=status.HTTP_400_BAD_REQUEST)
         
         product = Product.objects.filter(id=id, is_deleted=False).first()
         if not product:
             data = self.error(message='Product not found')
-            return Response(data, status=404)
+            return Response(data, status=status.HTTP_404_NOT_FOUND)
 
         serializer = ProductSerializer(product)
         data = self.success(data=serializer.data, message='Product retrieved successfully')
@@ -36,22 +37,22 @@ class ProductAPIView(APIView, GeneralResponse):
         serializer = ProductSerializer(data=request.data)
         if not serializer.is_valid():
             data = self.error(message=serializer.errors)
-            return Response(data, status=400)
+            return Response(data, status=status.HTTP_400_BAD_REQUEST)
         
         serializer.save()
         data = self.success(data=serializer.data, message='Product created successfully')
-        return Response(data, status=201)
+        return Response(data, status=status.HTTP_201_CREATED)
 
     def patch(self, request, id):
         product = Product.objects.filter(id=id, is_deleted=False).first()
         if not product:
             data = self.error(message='Product not found')
-            return Response(data, status=404)
+            return Response(data, status=status.HTTP_404_NOT_FOUND)
 
         serializer = ProductSerializer(product, data=request.data, partial=True)
         if not serializer.is_valid():
             data = self.error(message=serializer.errors)
-            return Response(data, status=400)
+            return Response(data, status=status.HTTP_400_BAD_REQUEST)
 
         serializer.save()
         data = self.success(data=serializer.data, message='Product updated successfully')

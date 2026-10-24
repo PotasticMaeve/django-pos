@@ -40,7 +40,8 @@ admin.site.index_title = "Welcome to the Inventory Management System"
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/products', include('src.inventory.urls')),
+    path('products', include('src.inventory.urls')),
+    path('auth/', include('auth.urls')),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
     re_path(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
