@@ -13,6 +13,10 @@ class ProductAPIView(APIView, GeneralResponse):
         return Response(data)
     
     def retrieve(self, request, id):
+        if not isinstance(id, int):
+            data = self.error(message='Invalid product ID')
+            return Response(data, status=400)
+        
         product = Product.objects.filter(id=id, is_deleted=False).first()
         if not product:
             data = self.error(message='Product not found')
