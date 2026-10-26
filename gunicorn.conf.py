@@ -1,0 +1,10 @@
+bind="0.0.0.0:8000"
+workers=1
+threads=4
+timeout=20
+graceful_timeout=60
+keepalive=2
+accesslog="-"
+errorlog="-"
+worker_class="gthread"
+loglevel="info"
