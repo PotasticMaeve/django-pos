@@ -1,6 +1,7 @@
 from .views import ProductAPIView
-from django.urls import re_path
+from django.urls import path
 
 urlpatterns = [
-    re_path(r'^(?:|/)$', ProductAPIView.as_view(), name='product-list'),
+    path('', ProductAPIView.as_view(), name='product-list'),
+    path('/', ProductAPIView.as_view(), name='product-list-2'),
 ]

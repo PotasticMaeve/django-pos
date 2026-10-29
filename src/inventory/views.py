@@ -1,13 +1,33 @@
-from operator import is_
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from src.utils.response import GeneralResponse
 from .models import Product
 from .serializers import ProductSerializer
-from src.utils.response import GeneralResponse
 from rest_framework import status
+from django.core.cache import cache
+from django.db import transaction
 
 class ProductAPIView(APIView, GeneralResponse):
     def list(self, request):
+        search = request.GET.get('search')
+        rate_limit_key = f'product_rate_limit_{search}'
+        get_cache_rate_limit = cache.get(rate_limit_key)
+        
+        if get_cache_rate_limit:
+            if get_cache_rate_limit >= 3:
+                data = self.error(message='rate limited')
+                return Response(data)
+            cache.set(rate_limit_key, get_cache_rate_limit+1,160)
+        else:
+            cache.set(rate_limit_key, 1, 160)
+            
+        cache_key = f'product_cache_{search}'  
+        get_cache = cache.get(cache_key)
+        
+        if get_cache:
+            data = self.success(data=get_cache, message='Products cache', is_cache=True)
+            return data 
+        
         products = Product.objects.filter(is_deleted=False)
         serializer = ProductSerializer(products, many=True)
         data = self.success(data=serializer.data, message='Products retrieved successfully')
@@ -34,26 +54,53 @@ class ProductAPIView(APIView, GeneralResponse):
         return self.list(request)
     
     def post(self, request):
+        sid = transaction.savepoint()
         serializer = ProductSerializer(data=request.data)
         if not serializer.is_valid():
             data = self.error(message=serializer.errors)
+            transaction.savepoint_rollback(sid)
             return Response(data, status=status.HTTP_400_BAD_REQUEST)
         
         serializer.save()
         data = self.success(data=serializer.data, message='Product created successfully')
+        transaction.savepoint_commit(sid)
         return Response(data, status=status.HTTP_201_CREATED)
 
-    def patch(self, request, id):
+    def update_data(self, payload, id):
+        sid = transaction.savepoint()     
+        if not id:
+            return False, 'id cannot be empty'
+        
         product = Product.objects.filter(id=id, is_deleted=False).first()
         if not product:
-            data = self.error(message='Product not found')
-            return Response(data, status=status.HTTP_404_NOT_FOUND)
+            transaction.savepoint_rollback(sid)
+            return False, 'product not found'
 
-        serializer = ProductSerializer(product, data=request.data, partial=True)
+        serializer = ProductSerializer(product, data=payload, partial=True)
         if not serializer.is_valid():
-            data = self.error(message=serializer.errors)
-            return Response(data, status=status.HTTP_400_BAD_REQUEST)
+            transaction.savepoint_rollback(sid)
+            return False, serializer.errors
 
         serializer.save()
-        data = self.success(data=serializer.data, message='Product updated successfully')
+        transaction.savepoint_commit(sid)
+        return True, serializer.data
+    
+    def patch(self, request):
+        payload = request.data
+        id = request.GET.get('id')
+        is_success, data = self.update_data(payload, id)
+        if not is_success:
+            return self.error(message=data)
+        
+        data = self.success(data=data, message='Product updated successfully')
+        return Response(data)
+        
+    def delete(self, request):
+        payload = { 'is_deleted': True }
+        id = request.GET.get('id')
+        is_success, data = self.update_data(payload, id)
+        if not is_success:
+            return self.error(message=data)
+        
+        data = self.success(data=data, message='Product deleted successfully')
         return Response(data)
